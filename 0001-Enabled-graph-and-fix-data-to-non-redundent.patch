@@ -1,0 +1,114 @@
+From a669357440bf69471fe39bc971393ad0c62c2ea7 Mon Sep 17 00:00:00 2001
+From: ladparthk <ladparthk@outlook.com>
+Date: Sun, 30 Jun 2024 17:37:22 -0500
+Subject: [PATCH] Enabled graph and fix  data to non redundent
+
+---
+ src/App.tsx   | 32 ++++++++++++++++++++++++++------
+ src/Graph.tsx |  6 ++++++
+ 2 files changed, 32 insertions(+), 6 deletions(-)
+
+diff --git a/src/App.tsx b/src/App.tsx
+index 0728518..8c0bc1e 100755
+--- a/src/App.tsx
++++ b/src/App.tsx
+@@ -2,18 +2,24 @@ import React, { Component } from 'react';
+ import DataStreamer, { ServerRespond } from './DataStreamer';
+ import Graph from './Graph';
+ import './App.css';
++import { Table } from '@finos/perspective';
+ 
+ /**
+  * State declaration for <App />
+  */
+ interface IState {
+   data: ServerRespond[],
++  showGraph: boolean, // ISTATE: for toggling the graph on and off : usually a boolean (true/false)
+ }
+ 
+ /**
+  * The parent element of the react app.
+  * It renders title, button and Graph react element.
+  */
++interface PerspectiveViewerElement extends HTMLElement {
++  load: (table: Table) => void,
++}
++
+ class App extends Component<{}, IState> {
+   constructor(props: {}) {
+     super(props);
+@@ -22,27 +28,41 @@ class App extends Component<{}, IState> {
+       // data saves the server responds.
+       // We use this state to parse data down to the child element (Graph) as element property
+       data: [],
++      showGraph: false, // hide the graph initially
+     };
+   }
+ 
++componentDidMount() {
++  const elem = document.getElementsByTagName('perspective-viewer')[0] as unknown as PerspectiveViewerElement;
++}
++
+   /**
+    * Render Graph react component with state.data parse as property data
+    */
+   renderGraph() {
+-    return (<Graph data={this.state.data}/>)
++    if (this.state.showGraph) {
++      return (<Graph data={this.state.data}/>)
++    }
+   }
+ 
+   /**
+    * Get new data from server and update the state with the new data
+    */
+   getDataFromServer() {
++    let x = 0;
++    const interval = setInterval(() => {
+     DataStreamer.getData((serverResponds: ServerRespond[]) => {
+-      // Update the state by creating a new array of data that consists of
+-      // Previous data in the state and the new data from server
+-      this.setState({ data: [...this.state.data, ...serverResponds] });
++      this.setState({ 
++        data: serverResponds, 
++        showGraph: true 
++      });
+     });
+-  }
+-
++    x++;
++    if (x > 1000) {
++      clearInterval(interval);
++    }
++  }, 100);
++}
+   /**
+    * Render the App react component
+    */
+diff --git a/src/Graph.tsx b/src/Graph.tsx
+index 3b2a7da..48c05e6 100644
+--- a/src/Graph.tsx
++++ b/src/Graph.tsx
+@@ -15,6 +15,7 @@ interface IProps {
+  * This interface acts as a wrapper for Typescript compiler.
+  */
+ interface PerspectiveViewerElement {
++  setAttribute(arg0: string, arg1: string): unknown;
+   load: (table: Table) => void,
+ }
+ 
+@@ -49,6 +50,11 @@ class Graph extends Component<IProps, {}> {
+ 
+       // Add more Perspective configurations here.
+       elem.load(this.table);
++      elem.setAttribute('view', 'y_line');
++      elem.setAttribute('column-pivots', '["stock"]');
++      elem.setAttribute('row-pivots', '["timestamp"]');
++      elem.setAttribute('columns', '["top_ask_price", "top_bid_price"]');
++      elem.setAttribute('aggregates', `{"top_ask_price": "avg", "top_bid_price": "avg", "timestamp": "distinct_count"}`);
+     }
+   }
+ 
+-- 
+2.45.2.windows.1
+
